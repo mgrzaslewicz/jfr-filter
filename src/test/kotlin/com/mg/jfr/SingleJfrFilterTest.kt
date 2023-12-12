@@ -1,6 +1,6 @@
 package com.mg.jfr
 
-import com.mg.jfr.api.JfrFilter
+import com.mg.jfr.api.SingleJfrFilter
 import com.mg.jfr.api.javaThreadId
 import jdk.jfr.consumer.RecordedEvent
 import mu.KLogging
@@ -12,7 +12,7 @@ import java.security.MessageDigest
 import java.util.function.Predicate
 import kotlin.io.path.fileSize
 
-class JfrFilterTest {
+class SingleJfrFilterTest {
     private companion object : KLogging()
 
     private fun Path.md5Sum(): String {
@@ -33,12 +33,15 @@ class JfrFilterTest {
     fun shouldRewriteWithoutChanges() {
         // given
         val expectedInput = SampleJfr.path
-        val jfrFilter = JfrFilter(expectedInput)
-        // when
-        val actualOutput = jfrFilter.filter(
+        val actualOutput =
+            expectedInput.resolveSibling("shouldRewriteWithoutChanges-" + expectedInput.fileName.toString())
+        val jfrFilter = SingleJfrFilter(
+            input = expectedInput,
             eventFilter = { true },
-            output = expectedInput.resolveSibling("shouldRewriteWithoutChanges-" + expectedInput.fileName.toString())
+            output = actualOutput,
         )
+        // when
+        jfrFilter.filter()
         // then
         SoftAssertions.assertSoftly {
             it.assertThat(actualOutput).hasSize(expectedInput.fileSize())
@@ -56,13 +59,15 @@ class JfrFilterTest {
             expectedThreadCounter.compute(javaThreadId) { _, count -> (count ?: 0) + 1 }
             javaThreadId == SampleJfr.sampleThreadId
         }
+        val filteredFile = sampleInput.resolveSibling("shouldFilterByThreadId-" + sampleInput.fileName.toString())
         // when
         logger.debug("Filtering JFR ...")
-        val jrfFilter = JfrFilter(sampleInput)
-        val filteredFile = jrfFilter.filter(
+        val jrfFilter = SingleJfrFilter(
+            input = sampleInput,
             eventFilter = filter,
-            output = sampleInput.resolveSibling("shouldFilterByThreadId-" + sampleInput.fileName.toString())
+            output = filteredFile,
         )
+        jrfFilter.filter()
         // then
         val actualThreadCounter = mutableMapOf<Long?, Long>()
         JfrParser(jfrFile = filteredFile, listener = object : JfrEventListener {
