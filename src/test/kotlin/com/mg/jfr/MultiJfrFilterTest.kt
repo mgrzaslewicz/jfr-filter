@@ -1,6 +1,7 @@
 package com.mg.jfr
 
 import com.mg.jfr.api.MultiJfrFilter
+import com.mg.jfr.api.SingleJfrFilter
 import com.mg.jfr.api.javaThreadId
 import jdk.jfr.consumer.RecordedEvent
 import mu.KLogging
@@ -10,6 +11,7 @@ import java.nio.file.Path
 import java.security.MessageDigest
 import java.util.function.Predicate
 import kotlin.io.path.fileSize
+import kotlin.system.measureTimeMillis
 
 class MultiJfrFilterTest {
     private companion object : KLogging()
@@ -98,4 +100,43 @@ class MultiJfrFilterTest {
         assertThat(actualThreadCounter2).isEmpty()
     }
 
+    @Test
+    fun shouldBeFasterThanSingle() {
+        // given
+        val sampleInput = SampleJfr.path
+        val outputs =
+            (1..10).associate {
+                sampleInput.resolveSibling("shouldBeFasterThanSingle-$it-" + sampleInput.fileName.toString()) to Predicate<RecordedEvent> {
+                    val javaThreadId = it.javaThreadId()
+                    javaThreadId == SampleJfr.sampleThreadId
+                }
+            }
+        val multiFilter = MultiJfrFilter(
+            input = sampleInput,
+            outputs = outputs,
+        )
+        val singleJfrFilters = outputs.map { (output, eventFilter) ->
+            SingleJfrFilter(
+                input = sampleInput,
+                eventFilter = eventFilter,
+                output = output,
+            )
+        }
+        // when
+        logger.debug("Filtering JFR using MultiJfrFilter implementation ...")
+        val multiDuration = measureTimeMillis {
+            multiFilter.filter()
+        }
+        logger.debug { "MultiJfrFilter duration: $multiDuration ms" }
+
+        logger.debug("Filtering JFR using SingleJfrFilter implementation ...")
+        val singleDuration = measureTimeMillis {
+            singleJfrFilters.forEach { it.filter() }
+        }
+        logger.debug { "SingleJfrFilters duration: $singleDuration ms" }
+        // then
+        assertThat(multiDuration)
+            .describedAs("Multi duration should be at least 60% faster than single - given enough outputs to produce")
+            .isLessThan((singleDuration * 0.4).toLong())
+    }
 }

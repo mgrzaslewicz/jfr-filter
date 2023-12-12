@@ -11,6 +11,7 @@ import java.util.function.Predicate
 /**
  * Creates multiple JFR files from a single JFR file.
  * Reading JFR is memory heavy so read it once and write multiple times.
+ * MultiJfrFilter.filter() with n outputs is faster than n x SingleJfrFilter.filter()
  */
 class MultiJfrFilter(
     private val input: Path,
