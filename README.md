@@ -16,3 +16,13 @@ I've made first implementation with Maciej Kwidziński when we were tuning up Ji
 - Original `JfrFilter` used for Jira performance tune up in repository: https://github.com/atlassian/report
 - Maciej Kwidziński's github account: https://github.com/dagguh
 - `JMC` writer: https://github.com/openjdk/jmc/tree/master/core/org.openjdk.jmc.flightrecorder.writer
+
+
+# async-profiler pitfalls
+
+## Intellij
+### Workaround for bug https://youtrack.jetbrains.com/issue/IDEA-320011
+Provide `-i <interval>` to make intellij display flame graph correctly, with all events included. Without that, only first 10 000 events are displayed.
+
+### You have to include `jdk.ActiveSetting` events to display `Total Time` selector in flame graph
+Take a look at the `JdkActiveSettingPredicate`. Without it you're going to see only `CPU Time` selector.
