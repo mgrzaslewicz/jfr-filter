@@ -1,5 +1,6 @@
 package com.mg.jfr
 
+import com.mg.jfr.api.JdkActiveSettingPredicate
 import com.mg.jfr.api.SingleJfrFilter
 import com.mg.jfr.api.javaThreadId
 import jdk.jfr.consumer.RecordedEvent
@@ -59,12 +60,12 @@ class SingleJfrFilterTest {
             expectedThreadCounter.compute(javaThreadId) { _, count -> (count ?: 0) + 1 }
             javaThreadId == SampleJfr.sampleThreadId
         }
-        val filteredFile = sampleInput.resolveSibling("shouldFilterByThreadId-" + sampleInput.fileName.toString())
+        val filteredFile = sampleInput.resolveSibling("shouldFilterByThreadId-with-total-time-in-intellij-" + sampleInput.fileName.toString())
         // when
         logger.debug("Filtering JFR ...")
         val jrfFilter = SingleJfrFilter(
             input = sampleInput,
-            eventFilter = filter,
+            eventFilter = JdkActiveSettingPredicate().or(filter),
             output = filteredFile,
         )
         jrfFilter.filter()
@@ -73,7 +74,9 @@ class SingleJfrFilterTest {
         JfrParser(jfrFile = filteredFile, listener = object : JfrEventListener {
             override fun onEvent(event: RecordedEvent, bytes: ByteArray) {
                 val javaThreadId = event.javaThreadId()
-                actualThreadCounter.compute(javaThreadId) { _, count -> (count ?: 0) + 1 }
+                if (javaThreadId != null) {
+                    actualThreadCounter.compute(javaThreadId) { _, count -> (count ?: 0) + 1 }
+                }
             }
         }).parse()
         assertThat(actualThreadCounter[SampleJfr.sampleThreadId]).isEqualTo(expectedThreadCounter[SampleJfr.sampleThreadId])
